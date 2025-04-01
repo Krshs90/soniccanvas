@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary colors -->
+    <color name="primary">#6200EA</color>
+    <color name="primary_dark">#3700B3</color>
+    <color name="primary_light">#BB86FC</color>
+
+    <!-- Secondary colors -->
+    <color name="secondary">#03DAC6</color>
+    <color name="secondary_dark">#018786</color>
+
+    <!-- Background colors -->
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="card">#2D2D2D</color>
+
+    <!-- Text colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color> <!-- 70% white -->
+    <color name="text_disabled">#61FFFFFF</color> <!-- 38% white -->
+
+    <!-- Button states -->
+    <color name="button_normal">#6200EA</color>
+    <color name="button_pressed">#3700B3</color>
+    <color name="button_disabled">#61FFFFFF</color>
+
+    <!-- Visualization colors -->
+    <color name="visualizer_waveform">#BB86FC</color>
+    <color name="visualizer_bars">#03DAC6</color>
+    <color name="visualizer_circular">#CF6679</color>
+
+    <!-- Legacy colors (keeping for compatibility) -->
+    <color name="purple_200">#BB86FC</color>
+    <color name="purple_500">#6200EE</color>
+    <color name="purple_700">#3700B3</color>
+    <color name="teal_200">#03DAC5</color>
+    <color name="teal_700">#018786</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+</resources>
