@@ -26,6 +26,12 @@
         <item name="textAppearanceSubtitle1">@style/TextAppearance.SonicCanvas.Subtitle1</item>
         <item name="textAppearanceBody1">@style/TextAppearance.SonicCanvas.Body1</item>
         <item name="textAppearanceButton">@style/TextAppearance.SonicCanvas.Button</item>
+
+        <!-- Custom styles -->
+        <item name="materialCardViewStyle">@style/Widget.SonicCanvas.CardView</item>
+        <item name="chipStyle">@style/Widget.SonicCanvas.Chip</item>
+        <item name="materialButtonStyle">@style/Widget.SonicCanvas.Button</item>
+        <item name="switchStyle">@style/Widget.SonicCanvas.Switch</item>
     </style>
 
     <!-- Text styles -->
@@ -79,6 +85,30 @@
         <item name="android:paddingEnd">16dp</item>
         <item name="android:paddingTop">12dp</item>
         <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <!-- Card style -->
+    <style name="Widget.SonicCanvas.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardElevation">4dp</item>
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardBackgroundColor">@color/card</item>
+        <item name="rippleColor">@color/primary</item>
+    </style>
+
+    <!-- Chip style -->
+    <style name="Widget.SonicCanvas.Chip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="android:textAppearance">@style/TextAppearance.SonicCanvas.Button</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="chipCornerRadius">16dp</item>
+        <item name="android:elevation">2dp</item>
+        <item name="chipMinHeight">48dp</item>
+        <item name="chipMinTouchTargetSize">48dp</item>
+    </style>
+
+    <!-- Switch style -->
+    <style name="Widget.SonicCanvas.Switch" parent="Widget.MaterialComponents.CompoundButton.Switch">
+        <item name="thumbTint">@color/primary</item>
+        <item name="trackTint">@color/primary_dark</item>
     </style>
 
     <style name="Widget.SonicCanvas.Button.Chip" parent="Widget.MaterialComponents.Button">

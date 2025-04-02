@@ -24,8 +24,10 @@ public class VisualizerView extends View {
     private Path path;
     private boolean isInitialized = false;
 
-    // Sensitivity multiplier - higher value = more responsive visualization
-    private float sensitivityMultiplier = 3.5f;
+    // Modified sensitivity multiplier for better visuals
+    private float sensitivityMultiplier = 2.0f;
+    // Add amplitude limiter to prevent extreme values
+    private float maxAmplitude = 0.8f;
 
     public VisualizerView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -88,7 +90,8 @@ public class VisualizerView extends View {
     }
 
     public void updateVisualizer(float magnitude, short[] data, int size) {
-        this.magnitude = magnitude * sensitivityMultiplier;
+        // Limit the magnitude to prevent extreme visualization
+        this.magnitude = Math.min(magnitude * sensitivityMultiplier, height / 2.5f);
         this.audioData = data;
         this.audioDataSize = size;
         updateWaveformBuffer(this.magnitude);
@@ -151,8 +154,10 @@ public class VisualizerView extends View {
         path.moveTo(0, yMid);
 
         for (int i = 0; i < Math.min(audioDataSize / 2, 128); i++) {
-            // Apply sensitivity multiplier to make it more responsive
+            // Apply sensitivity multiplier but limit amplitude
             float amplitude = (audioData[i * 2] / 32768f) * sensitivityMultiplier;
+            // Clamp amplitude to prevent extreme values
+            amplitude = Math.max(-maxAmplitude, Math.min(amplitude, maxAmplitude));
             float y = yMid - (amplitude * height / 2);
 
             if (i == 0) {
@@ -186,20 +191,24 @@ public class VisualizerView extends View {
         float barWidth = (width / (float) numBars) * 0.8f;
         float spacing = (width - (numBars * barWidth)) / (numBars + 1);
         float x = spacing;
-        int dataPerBar = audioDataSize / numBars;
+        int dataPerBar = Math.max(1, audioDataSize / numBars);
 
         for (int i = 0; i < numBars; i++) {
             float barHeight = 0;
+            int sampleCount = 0;
             for (int j = i * dataPerBar; j < (i + 1) * dataPerBar && j < audioDataSize; j++) {
                 barHeight += Math.abs(audioData[j]);
+                sampleCount++;
             }
 
-            barHeight /= dataPerBar;
-            // Increase bar height with sensitivity multiplier
-            barHeight = barHeight / 32768f * height * 0.8f * sensitivityMultiplier;
+            if (sampleCount > 0) {
+                barHeight /= sampleCount;
+            }
+
+            // Limit bar height with sensitivity
+            barHeight = Math.min(barHeight / 32768f * height * 0.8f * sensitivityMultiplier, height * 0.8f);
 
             if (barHeight < 10) barHeight = 10; // Minimum bar height
-            if (barHeight > height) barHeight = height;
 
             float y = height - barHeight;
 
@@ -229,22 +238,27 @@ public class VisualizerView extends View {
         float angle = 0;
 
         path.reset();
+        boolean firstPoint = true;
 
         for (int i = 0; i < numPoints; i++) {
             int dataIndex = (i * audioDataSize / numPoints) % audioDataSize;
-            // Apply sensitivity multiplier for more dramatic effect
-            float amplitude = Math.abs(audioData[dataIndex]) / 32768f * sensitivityMultiplier;
+            if (dataIndex < audioDataSize) {
+                // Apply sensitivity multiplier and limit amplitude
+                float amplitude = Math.abs(audioData[dataIndex]) / 32768f * sensitivityMultiplier;
+                amplitude = Math.min(amplitude, 0.8f); // Limit amplitude
 
-            // Add some base radius so it's never zero
-            float radius = baseRadius + (amplitude * baseRadius * 0.5f);
+                // Add some base radius so it's never zero
+                float radius = baseRadius + (amplitude * baseRadius * 0.5f);
 
-            float x = centerX + radius * (float) Math.cos(angle);
-            float y = centerY + radius * (float) Math.sin(angle);
+                float x = centerX + radius * (float) Math.cos(angle);
+                float y = centerY + radius * (float) Math.sin(angle);
 
-            if (i == 0) {
-                path.moveTo(x, y);
-            } else {
-                path.lineTo(x, y);
+                if (firstPoint) {
+                    path.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    path.lineTo(x, y);
+                }
             }
 
             angle += angleIncrement;

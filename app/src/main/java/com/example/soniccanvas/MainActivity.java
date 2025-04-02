@@ -1,3 +1,4 @@
+
 package com.example.soniccanvas;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -22,6 +23,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "SonicCanvas";
     private static final int PERMISSION_REQUEST_CODE = 123;
     private static final int RECORD_AUDIO_PERMISSION = 0;
     private static final int MODIFY_AUDIO_PERMISSION = 1;
@@ -65,14 +67,15 @@ public class MainActivity extends AppCompatActivity {
         audioSourceSwitch = findViewById(R.id.audioSourceSwitch);
 
         visualizerView.setVisualizerType(currentVisualizerType);
-        visualizerView.setSensitivityMultiplier(2.5f); // Default sensitivity
+        visualizerView.setSensitivityMultiplier(5.0f); // Increase sensitivity
 
-        // Request both audio permissions
+        // Request audio permissions
         requestAudioPermissions();
 
         // Set up audio source switch listener
         audioSourceSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             isUsingMicrophone = !isChecked;
+
             if (isRecording) {
                 stopRecording();
                 startRecording();
@@ -105,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
                     currentVisualizerType = 2;
                 }
                 visualizerView.setVisualizerType(currentVisualizerType);
+                Log.d(TAG, "Visualizer type changed to: " + currentVisualizerType);
             }
         });
 
@@ -123,14 +127,11 @@ public class MainActivity extends AppCompatActivity {
             permissionText.setVisibility(View.GONE);
         }
 
-        // For Android 10+ we need this permission for device audio capture
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.MODIFY_AUDIO_SETTINGS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.MODIFY_AUDIO_SETTINGS},
-                        MODIFY_AUDIO_PERMISSION);
-            }
+        // Request MODIFY_AUDIO_SETTINGS permission explicitly
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.MODIFY_AUDIO_SETTINGS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.MODIFY_AUDIO_SETTINGS},
+                    MODIFY_AUDIO_PERMISSION);
         }
     }
 
@@ -145,6 +146,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupMicrophoneRecording() {
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Microphone permission required", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -152,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
             releaseDeviceAudioVisualizer();
 
             audioRecord = new AudioRecord(
-                    MediaRecorder.AudioSource.MIC, // Use MIC instead of VOICE_COMMUNICATION for better sensitivity
+                    MediaRecorder.AudioSource.MIC,
                     SAMPLE_RATE,
                     CHANNEL_CONFIG,
                     AUDIO_FORMAT,
@@ -160,14 +162,14 @@ public class MainActivity extends AppCompatActivity {
             );
 
             if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                Log.e("AudioRecord", "AudioRecord not initialized");
+                Log.e(TAG, "AudioRecord not initialized");
                 Toast.makeText(this, "AudioRecord failed to initialize.", Toast.LENGTH_LONG).show();
                 return;
             }
+            Log.d(TAG, "Microphone recording setup successfully");
         } catch (IllegalArgumentException e) {
-            Log.e("AudioRecord", "Error initializing AudioRecord: " + e.getMessage());
+            Log.e(TAG, "Error initializing AudioRecord: " + e.getMessage());
             Toast.makeText(this, "Error initializing audio recording. Please check your device.", Toast.LENGTH_LONG).show();
-            return;
         }
     }
 
@@ -176,53 +178,58 @@ public class MainActivity extends AppCompatActivity {
             // Release microphone if it exists
             releaseMicrophoneRecording();
 
-            // Make sure we have permission for modifying audio settings
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.MODIFY_AUDIO_SETTINGS)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Audio settings permission required for device audio capture.", Toast.LENGTH_LONG).show();
-                    isUsingMicrophone = true;
-                    audioSourceSwitch.setChecked(false);
-                    setupMicrophoneRecording();
-                    return;
-                }
+            // Check permission for MODIFY_AUDIO_SETTINGS
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.MODIFY_AUDIO_SETTINGS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Audio settings permission required for device audio capture", Toast.LENGTH_LONG).show();
+                isUsingMicrophone = true;
+                audioSourceSwitch.setChecked(false);
+                setupMicrophoneRecording();
+                return;
             }
 
             // Create a Visualizer to capture device audio output
             int captureSize = Visualizer.getCaptureSizeRange()[1]; // Use maximum capture size
-            Log.d("Visualizer", "Creating visualizer with capture size: " + captureSize);
+            Log.d(TAG, "Creating visualizer with capture size: " + captureSize);
 
-            visualizer = new Visualizer(0); // 0 = output mix (device audio)
-            visualizer.setEnabled(false);
-            visualizer.setCaptureSize(captureSize);
+            try {
+                visualizer = new Visualizer(0); // 0 = output mix (device audio)
+                visualizer.setEnabled(false);
+                visualizer.setCaptureSize(captureSize);
 
-            // Set up data capture listener
-            visualizer.setDataCaptureListener(
-                    new Visualizer.OnDataCaptureListener() {
-                        @Override
-                        public void onWaveFormDataCapture(Visualizer visualizer, byte[] waveform, int samplingRate) {
-                            // Convert byte[] to short[] for compatibility with existing code
-                            short[] audioData = new short[waveform.length];
-                            for (int i = 0; i < waveform.length; i++) {
-                                audioData[i] = (short) ((waveform[i] & 0xFF) * 128);
+                // Set up data capture listener
+                visualizer.setDataCaptureListener(
+                        new Visualizer.OnDataCaptureListener() {
+                            @Override
+                            public void onWaveFormDataCapture(Visualizer visualizer, byte[] waveform, int samplingRate) {
+                                // Convert byte[] to short[] for compatibility with existing code
+                                short[] audioData = new short[waveform.length];
+                                for (int i = 0; i < waveform.length; i++) {
+                                    audioData[i] = (short) ((waveform[i] & 0xFF) * 128); // Amplify signal for better visualization
+                                }
+
+                                float magnitude = calculateMagnitude(audioData, audioData.length);
+                                visualizerView.updateVisualizer(magnitude * 2.0f, audioData, audioData.length); // Increase sensitivity
                             }
 
-                            float magnitude = calculateMagnitude(audioData, audioData.length);
-                            visualizerView.updateVisualizer(magnitude, audioData, audioData.length);
-                        }
+                            @Override
+                            public void onFftDataCapture(Visualizer visualizer, byte[] fft, int samplingRate) {
+                                // We're not using FFT data in this implementation
+                            }
+                        },
+                        Visualizer.getMaxCaptureRate(), // Maximum capture rate for smooth visualization
+                        true, // Capture waveform
+                        false // Don't capture FFT
+                );
+                Log.d(TAG, "Device audio capture setup successfully");
 
-                        @Override
-                        public void onFftDataCapture(Visualizer visualizer, byte[] fft, int samplingRate) {
-                            // We're not using FFT data in this implementation
-                        }
-                    },
-                    Visualizer.getMaxCaptureRate(), // Maximum capture rate for smooth visualization
-                    true, // Capture waveform
-                    false // Don't capture FFT
-            );
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating Visualizer: " + e.getMessage(), e);
+                throw e;
+            }
 
         } catch (Exception e) {
-            Log.e("Visualizer", "Error setting up device audio capture: " + e.getMessage(), e);
+            Log.e(TAG, "Error setting up device audio capture: " + e.getMessage(), e);
             Toast.makeText(this, "Error setting up device audio capture. Falling back to microphone.", Toast.LENGTH_LONG).show();
             isUsingMicrophone = true;
             audioSourceSwitch.setChecked(false);
@@ -239,10 +246,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
                 audioRecord.release();
+                audioRecord = null;
+                Log.d(TAG, "Microphone recording released");
             } catch (Exception e) {
-                Log.e("AudioRecord", "Error releasing AudioRecord: " + e.getMessage());
+                Log.e(TAG, "Error releasing AudioRecord: " + e.getMessage());
             }
-            audioRecord = null;
         }
     }
 
@@ -251,10 +259,11 @@ public class MainActivity extends AppCompatActivity {
             try {
                 visualizer.setEnabled(false);
                 visualizer.release();
+                visualizer = null;
+                Log.d(TAG, "Device audio visualizer released");
             } catch (Exception e) {
-                Log.e("Visualizer", "Error releasing Visualizer: " + e.getMessage());
+                Log.e(TAG, "Error releasing Visualizer: " + e.getMessage());
             }
-            visualizer = null;
         }
     }
 
@@ -281,8 +290,9 @@ public class MainActivity extends AppCompatActivity {
             isRecording = true;
             recordingThread = new Thread(this::processAudioData);
             recordingThread.start();
+            Log.d(TAG, "Microphone recording started");
         } catch (IllegalStateException e) {
-            Log.e("AudioRecord", "Error starting AudioRecord: " + e.getMessage());
+            Log.e(TAG, "Error starting AudioRecord: " + e.getMessage());
             Toast.makeText(this, "Error starting audio recording.", Toast.LENGTH_LONG).show();
         }
     }
@@ -298,8 +308,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             visualizer.setEnabled(true);
             isRecording = true;
+            Log.d(TAG, "Device audio capture started");
         } catch (IllegalStateException e) {
-            Log.e("Visualizer", "Error enabling Visualizer: " + e.getMessage());
+            Log.e(TAG, "Error enabling Visualizer: " + e.getMessage());
             Toast.makeText(this, "Error capturing device audio.", Toast.LENGTH_LONG).show();
         }
     }
@@ -321,20 +332,22 @@ public class MainActivity extends AppCompatActivity {
             try {
                 audioRecord.stop();
                 audioRecord.release();
+                audioRecord = null;
+                Log.d(TAG, "Microphone recording stopped");
             } catch (Exception e) {
-                Log.e("AudioRecord", "Error stopping recording: " + e.getMessage());
+                Log.e(TAG, "Error stopping recording: " + e.getMessage());
             }
-            audioRecord = null;
         }
 
         if (recordingThread != null) {
             try {
                 recordingThread.join();
+                recordingThread = null;
+                Log.d(TAG, "Recording thread stopped");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                Log.e("AudioRecord", "Error stopping recording thread: " + e.getMessage());
+                Log.e(TAG, "Error stopping recording thread: " + e.getMessage());
             }
-            recordingThread = null;
         }
     }
 
@@ -342,8 +355,9 @@ public class MainActivity extends AppCompatActivity {
         if (visualizer != null) {
             try {
                 visualizer.setEnabled(false);
+                Log.d(TAG, "Device audio capture stopped");
             } catch (Exception e) {
-                Log.e("Visualizer", "Error disabling Visualizer: " + e.getMessage());
+                Log.e(TAG, "Error disabling Visualizer: " + e.getMessage());
             }
         }
     }
@@ -355,7 +369,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 readResult = audioRecord.read(buffer, 0, buffer.length);
             } catch (IllegalStateException e) {
-                Log.e("AudioRecord", "Error reading audio data: " + e.getMessage());
+                Log.e(TAG, "Error reading audio data: " + e.getMessage());
                 stopRecording();
                 return;
             }
@@ -363,9 +377,10 @@ public class MainActivity extends AppCompatActivity {
             if (readResult > 0) {
                 float magnitude = calculateMagnitude(buffer, readResult);
                 int finalReadResult = readResult;
-                handler.post(() -> visualizerView.updateVisualizer(magnitude, buffer, finalReadResult));
+                // Increase sensitivity by multiplying magnitude
+                handler.post(() -> visualizerView.updateVisualizer(magnitude * 2.5f, buffer, finalReadResult));
             } else if (readResult < 0) {
-                Log.e("AudioRecord", "Error reading audio data, readResult: " + readResult);
+                Log.e(TAG, "Error reading audio data, readResult: " + readResult);
                 stopRecording();
                 return;
             }
@@ -373,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
                 Thread.sleep(VISUALIZATION_INTERVAL);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                Log.e("AudioRecord", "Thread sleep interrupted: " + e.getMessage());
+                Log.e(TAG, "Thread sleep interrupted: " + e.getMessage());
                 return;
             }
         }
@@ -384,7 +399,7 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < readResult; i++) {
             sum += Math.abs(buffer[i]);
         }
-        return (sum / readResult);
+        return sum / readResult;
     }
 
     @Override
@@ -411,16 +426,21 @@ public class MainActivity extends AppCompatActivity {
             case RECORD_AUDIO_PERMISSION:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     permissionText.setVisibility(View.GONE);
+                    Log.d(TAG, "RECORD_AUDIO permission granted");
                 } else {
                     Toast.makeText(this, "Audio recording permission required for visualization.", Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "RECORD_AUDIO permission denied");
                     finish();
                 }
                 break;
 
             case MODIFY_AUDIO_PERMISSION:
-                if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "MODIFY_AUDIO_SETTINGS permission granted");
+                } else {
                     // If permission denied, disable device audio option
                     Toast.makeText(this, "Permission needed for device audio capture. Only microphone will be available.", Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "MODIFY_AUDIO_SETTINGS permission denied");
                     isUsingMicrophone = true;
                     audioSourceSwitch.setChecked(false);
                     audioSourceSwitch.setEnabled(false);
